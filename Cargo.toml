@@ -1,0 +1,15 @@
+[package]
+name = "rusty_nrd"
+version = "0.1.0"
+edition = "2021"
+description = "Rust bindings for NVIDIA Realtime Denoiser (NRD)"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+
+[build-dependencies]
+bindgen = "0.72.0"
+cmake = "0.1"
+pkg-config = "0.3.32"
+sysreq = "0"
