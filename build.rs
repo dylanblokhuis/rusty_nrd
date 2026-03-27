@@ -65,7 +65,32 @@ fn main() {
 
     let _dst = config.build();
 
-    emit_link_lines(&out_dir, build_static, &target);
+    let nrd_lib_dir = nrd_native_library_dir(&out_dir, &target);
+    emit_link_lines(&nrd_lib_dir, build_static, &target);
+}
+
+/// MSVC multi-config generators (Visual Studio) place `NRD.lib` under `OUT_DIR/<Config>/` (e.g.
+/// `Release\NRD.lib`) even when `CMAKE_*_OUTPUT_DIRECTORY` is set to `OUT_DIR`. Single-config
+/// generators (Ninja, Makefiles) typically emit the import library directly in `OUT_DIR`.
+fn nrd_native_library_dir(out_dir: &Path, target: &str) -> PathBuf {
+    if target.contains("windows") && target.contains("msvc") {
+        for sub in ["Release", "Debug", "RelWithDebInfo", "MinSizeRel"] {
+            let p = out_dir.join(sub);
+            if p.join("NRD.lib").is_file() {
+                return p;
+            }
+        }
+    }
+    if out_dir.join("NRD.lib").is_file() {
+        return out_dir.to_path_buf();
+    }
+    for sub in ["Release", "Debug", "RelWithDebInfo", "MinSizeRel"] {
+        let p = out_dir.join(sub);
+        if p.join("NRD.lib").is_file() {
+            return p;
+        }
+    }
+    out_dir.to_path_buf()
 }
 
 fn nrd_source_dir(manifest_dir: &Path) -> PathBuf {
@@ -116,10 +141,10 @@ fn generate_nrd_bindings(manifest_dir: &Path, out_dir: &Path) {
         .expect("write nrd_bindings.rs");
 }
 
-fn emit_link_lines(out_dir: &Path, build_static: bool, target: &str) {
+fn emit_link_lines(nrd_lib_dir: &Path, build_static: bool, target: &str) {
     if build_static {
         println!("cargo:rustc-link-lib=static=NRD");
-        println!("cargo:rustc-link-search=native={}", out_dir.display());
+        println!("cargo:rustc-link-search=native={}", nrd_lib_dir.display());
         if target.contains("apple") {
             println!("cargo:rustc-link-lib=c++");
         } else if target.contains("linux") || target.contains("android") {
@@ -127,15 +152,15 @@ fn emit_link_lines(out_dir: &Path, build_static: bool, target: &str) {
         }
     } else if target.contains("windows") {
         println!("cargo:rustc-link-lib=NRD");
-        println!("cargo:rustc-link-search=native={}", out_dir.display());
+        println!("cargo:rustc-link-search=native={}", nrd_lib_dir.display());
     } else {
         println!("cargo:rustc-link-lib=dylib=NRD");
-        println!("cargo:rustc-link-search=native={}", out_dir.display());
+        println!("cargo:rustc-link-search=native={}", nrd_lib_dir.display());
 
         if target.contains("apple") {
-            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", out_dir.display());
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", nrd_lib_dir.display());
         } else if target.contains("linux") {
-            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", out_dir.display());
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", nrd_lib_dir.display());
         }
     }
 }
