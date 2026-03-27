@@ -7,6 +7,8 @@ fn main() {
     let manifest_dir =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
 
+    generate_nrd_bindings(&manifest_dir, &out_dir);
+
     let nrd_source = nrd_source_dir(&manifest_dir);
     let cmake_lists = nrd_source.join("CMakeLists.txt");
     if !cmake_lists.is_file() {
@@ -32,6 +34,7 @@ fn main() {
 
     let target = env::var("TARGET").unwrap_or_default();
     let target_is_apple = target.contains("apple");
+    let target_is_msvc = target.contains("windows") && target.contains("msvc");
 
     let mut config = cmake::Config::new(&nrd_source);
     config
@@ -45,11 +48,19 @@ fn main() {
         .define("CMAKE_RUNTIME_OUTPUT_DIRECTORY", out_display)
         .define("CMAKE_LIBRARY_OUTPUT_DIRECTORY", out_display)
         .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY", out_display)
+        // Skip D3D11 bytecode (fxc); DXIL remains for D3D12.
+        .define("NRD_EMBEDS_DXBC_SHADERS", "OFF")
         // NRD does not define an `install` CMake target; build the library target explicitly.
         .build_target("NRD");
 
     if target_is_apple {
         config.define("NRD_EMBEDS_METAL_SHADERS", "ON");
+    }
+
+    // MSVC: ShaderMake and other NRD deps use the C++ standard library in ways that require
+    // structured exception handling; without /EHsc, <ostream> triggers C4530 (warning as error).
+    if target_is_msvc {
+        config.cxxflag("/EHsc");
     }
 
     let _dst = config.build();
@@ -61,6 +72,48 @@ fn nrd_source_dir(manifest_dir: &Path) -> PathBuf {
     env::var_os("NRD_SYS_NRD_SOURCE")
         .map(PathBuf::from)
         .unwrap_or_else(|| manifest_dir.join("third_party/NVIDIA_RayTracingDenoiser"))
+}
+
+/// Generate Rust FFI from the NRD SDK `Include/NRD.h` (and nested NRD headers) via bindgen + libclang.
+fn generate_nrd_bindings(manifest_dir: &Path, out_dir: &Path) {
+    let include_dir = nrd_source_dir(manifest_dir).join("Include");
+    let header = include_dir.join("NRD.h");
+    if !header.is_file() {
+        panic!(
+            "NRD headers not found at {}.\n\
+             Expected headers next to the NRD source tree (`Include/NRD.h`).\n\
+             Initialize the submodule or set NRD_SYS_NRD_SOURCE to the repository root.",
+            header.display()
+        );
+    }
+
+    println!("cargo:rerun-if-changed={}", header.display());
+    for name in ["NRDDescs.h", "NRDSettings.h"] {
+        let p = include_dir.join(name);
+        println!("cargo:rerun-if-changed={}", p.display());
+    }
+
+    let include_arg = include_dir.to_str().unwrap_or_else(|| {
+        panic!("include path is not valid UTF-8: {}", include_dir.display());
+    });
+    let header_arg = header.to_str().unwrap_or_else(|| {
+        panic!("header path is not valid UTF-8: {}", header.display());
+    });
+
+    bindgen::Builder::default()
+        .header(header_arg)
+        .clang_arg("-I")
+        .clang_arg(include_arg)
+        .clang_arg("-x")
+        .clang_arg("c++")
+        .clang_arg("-std=c++17")
+        .layout_tests(false)
+        .derive_default(true)
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .generate()
+        .unwrap_or_else(|e| panic!("bindgen failed on {header_arg}: {e}"))
+        .write_to_file(out_dir.join("nrd_bindings.rs"))
+        .expect("write nrd_bindings.rs");
 }
 
 fn emit_link_lines(out_dir: &Path, build_static: bool, target: &str) {
