@@ -39,6 +39,7 @@ pub type ReferenceSettings = crate::ffi::nrd_ReferenceSettings;
 
 pub type TextureDesc = crate::ffi::nrd_TextureDesc;
 pub type PipelineDesc = crate::ffi::nrd_PipelineDesc;
+pub type DescriptorBindingDesc = crate::ffi::nrd_DescriptorBindingDesc;
 pub type ComputeShaderDesc = crate::ffi::nrd_ComputeShaderDesc;
 pub type ResourceRangeDesc = crate::ffi::nrd_ResourceRangeDesc;
 pub type DescriptorPoolDesc = crate::ffi::nrd_DescriptorPoolDesc;

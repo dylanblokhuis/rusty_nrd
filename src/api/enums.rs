@@ -151,6 +151,16 @@ pub enum DescriptorType {
     MaxNum = ffi::nrd_DescriptorType_MAX_NUM,
 }
 
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingType {
+    ConstantBuffer = ffi::nrd_BindingType_CONSTANT_BUFFER,
+    Sampler = ffi::nrd_BindingType_SAMPLER,
+    Texture = ffi::nrd_BindingType_TEXTURE,
+    StorageTexture = ffi::nrd_BindingType_STORAGE_TEXTURE,
+    MaxNum = ffi::nrd_BindingType_MAX_NUM,
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RoughnessEncoding {

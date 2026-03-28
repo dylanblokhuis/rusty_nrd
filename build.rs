@@ -49,7 +49,7 @@ fn main() {
         .define("CMAKE_LIBRARY_OUTPUT_DIRECTORY", out_display)
         .define("CMAKE_ARCHIVE_OUTPUT_DIRECTORY", out_display)
         // Skip D3D11 bytecode (fxc); DXIL remains for D3D12.
-        // .define("NRD_EMBEDS_DXBC_SHADERS", "OFF")
+        .define("NRD_EMBEDS_DXBC_SHADERS", "OFF")
         // NRD does not define an `install` CMake target; build the library target explicitly.
         .build_target("NRD");
 

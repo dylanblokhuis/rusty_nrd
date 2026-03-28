@@ -47,4 +47,22 @@ fn main() {
     if let Some(name) = rusty_nrd::denoiser_name(rusty_nrd::Denoiser::ReblurDiffuse) {
         println!("denoiser: {}", name.to_string_lossy());
     }
+
+    let pipeline_count = instance.description().expect("instance description").pipelines().len();
+    for pipeline_index in 0..pipeline_count {
+        let pipeline_index = pipeline_index as u16;
+
+        let bindings = instance
+            .pipeline_descriptor_binding_descs(pipeline_index, false)
+            .expect("GetPipelineDescriptorBindingDescs (native)");
+        println!("pipeline {} bindings (native): {:#?}", pipeline_index, bindings);
+
+        let spirv_bindings = instance
+            .pipeline_descriptor_binding_descs(pipeline_index, true)
+            .expect("GetPipelineDescriptorBindingDescs (spirv)");
+        println!(
+            "pipeline {} bindings (spirv): {:#?}",
+            pipeline_index, spirv_bindings
+        );
+    }
 }

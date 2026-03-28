@@ -143,6 +143,46 @@ impl Instance {
         })
     }
 
+    /// Returns descriptor binding descriptions for the specified pipeline.
+    ///
+    /// Set `spirv_layout` to `true` to query bindings remapped for SPIR-V.
+    pub fn pipeline_descriptor_binding_descs(
+        &self,
+        pipeline_index: u16,
+        spirv_layout: bool,
+    ) -> Result<Vec<ffi::nrd_DescriptorBindingDesc>, Error> {
+        let mut len: u32 = 0;
+        let code = unsafe {
+            ffi::nrd_GetPipelineDescriptorBindingDescs(
+                self.0,
+                pipeline_index,
+                spirv_layout,
+                ptr::null_mut(),
+                &mut len as *mut _,
+            )
+        };
+        result_from_ffi(code)?;
+
+        if len == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut descs = vec![ffi::nrd_DescriptorBindingDesc::default(); len as usize];
+        let code = unsafe {
+            ffi::nrd_GetPipelineDescriptorBindingDescs(
+                self.0,
+                pipeline_index,
+                spirv_layout,
+                descs.as_mut_ptr(),
+                &mut len as *mut _,
+            )
+        };
+        result_from_ffi(code)?;
+        descs.truncate(len as usize);
+
+        Ok(descs)
+    }
+
     pub fn set_common_settings(&mut self, settings: &ffi::nrd_CommonSettings) -> Result<(), Error> {
         let code = unsafe { ffi::nrd_SetCommonSettings(self.0, settings) };
         result_from_ffi(code)
